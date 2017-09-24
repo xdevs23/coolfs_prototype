@@ -1,0 +1,5 @@
+cfscli
+libcfs.so
+tmp/
+bin/
+testcfs.img
