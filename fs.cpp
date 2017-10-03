@@ -56,19 +56,40 @@ void cfs_write_to_disk(const char* filename, CFS filesystem) {
     LOGF("Writing to file %s...", filename);
     FILE* file = fopen(filename, "wb");
 
+    LOGF(" Writing header");
     fwrite(cfs_fs_header, strlen(cfs_fs_header), 1, file);
-    
-    size_t fsname_len = strlen(filesystem.name);
-    void* fsname_len_ptr = &fsname_len;
 
-    fwrite(fsname_len_ptr, sizeof(size_t), 1, file);
+    LOGF(" Writing fs name");
+    uint64_t fsname_len = strlen(filesystem.name);
+
+#ifdef BIG_E
+    LOGF(" Note: Big endian detected. Swapping to little endian.");
+    uint64_t fsname_len_swapped = __builtin_bswap64(fsname_len);
+    void* fsname_len_ptr = &fsname_len_swapped;
+#else
+    LOGF(" Note: Little endian detected. No swap necessary.");
+    void* fsname_len_ptr = &fsname_len;
+#endif
+
+    LOGF("  Writing...");
+    fwrite(fsname_len_ptr, sizeof(uint64_t), 1, file);
     fwrite(filesystem.name, fsname_len, 1, file);
 
-    fwrite(&filesystem.superblock->inode_sizes_len, sizeof(uint64_t), 1, file);    
+    LOGF(" Writing inode tables");
+#ifdef LITTLE_E
+    fwrite(&filesystem.superblock->inode_sizes_len, sizeof(uint64_t), 1, file);
+#else
+    uint64_t inode_sizes_len_swapped =
+        __builtin_bswap64(filesystem.superblock->inode_sizes_len);
+    fwrite(&inode_sizes_len_swapped,
+            sizeof(uint64_t), 1, file);
+#endif
 
-    fwrite(filesystem.superblock->inode_sizes, filesystem.superblock->inode_sizes_len,
-            1, file);
+    LOGF(" Writing superblock");
+    fwrite(filesystem.superblock->inode_sizes,
+            filesystem.superblock->inode_sizes_len, 1, file);
 
+    LOGF(" Finalizing");
     fflush(file);
     fclose(file);
 
