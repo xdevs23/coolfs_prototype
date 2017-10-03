@@ -28,6 +28,7 @@
 
 // C001F523 means CoolFS by xdevs23
 const char* cfs_fs_header = "\xC0\x01\xF5\x23\x00";
+#define CFS_FS_HEADER_LEN 4
 
 typedef struct _cfs {
     const char* name;
@@ -36,7 +37,8 @@ typedef struct _cfs {
 
 CFS cfs_create_filesystem(const char* name);
 void cfs_write_to_disk(const char* filename, CFS filesystem);
+CFS cfs_read_from_disk(const char* filename);
 void cfs_free_filesystem(CFS fs);
-void cfs_dump_filesystem(CFS fs);
+CFS cfs_dump_filesystem(CFS fs);
 
 #endif

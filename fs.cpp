@@ -37,17 +37,22 @@
 CFS cfs_create_filesystem(const char* name) {
     LOG("Creating new instance of CFS");
     CFS cfs = CFS();
-    LOGF("Setting name to \"%s\"", name);
-    cfs.name = name;
-    LOG("Creating new superblock");
+    LOGF(" Setting name to \"%s\"", name);
+    uint64_t namelen = strlen(name);
+    char* cfsname = (char*) malloc(namelen + 1);
+    cfsname[namelen] = 0;
+    memcpy(cfsname, name, namelen);
+    cfs.name = (const char*) cfsname;
+    LOGF("  Name set to \"%s\"", cfs.name);
+    LOG(" Creating new superblock");
     SUPERBLOCK* sb = cfs_create_superblock();
-    LOG("Creating inode table");
+    LOG(" Creating inode table");
     sb->inode_sizes_len = 4096;
     sb->inode_sizes = (uint64_t*) malloc(sb->inode_sizes_len);
     memset(sb->inode_sizes, 0, sb->inode_sizes_len);
-    LOG("Associating superblock to this CFS");
+    LOG(" Associating superblock to this CFS");
     cfs.superblock = sb;
-    LOG("Created CFS");
+    LOG(" Created CFS");
     return cfs;
 }
 
@@ -56,26 +61,26 @@ void cfs_write_to_disk(const char* filename, CFS filesystem) {
     LOGF("Writing to file %s...", filename);
     FILE* file = fopen(filename, "wb");
 
-    LOGF(" Writing header");
+    LOG(" Writing header");
     fwrite(cfs_fs_header, strlen(cfs_fs_header), 1, file);
 
-    LOGF(" Writing fs name");
+    LOG(" Writing fs name");
     uint64_t fsname_len = strlen(filesystem.name);
 
 #ifdef BIG_E
-    LOGF(" Note: Big endian detected. Swapping to little endian.");
+    LOG(" Note: Big endian detected. Swapping to little endian.");
     uint64_t fsname_len_swapped = __builtin_bswap64(fsname_len);
     void* fsname_len_ptr = &fsname_len_swapped;
 #else
-    LOGF(" Note: Little endian detected. No swap necessary.");
+    LOG(" Note: Little endian detected. No swap necessary.");
     void* fsname_len_ptr = &fsname_len;
 #endif
 
-    LOGF("  Writing...");
+    LOG("  Writing...");
     fwrite(fsname_len_ptr, sizeof(uint64_t), 1, file);
     fwrite(filesystem.name, fsname_len, 1, file);
 
-    LOGF(" Writing inode tables");
+    LOG(" Writing inode tables");
 #ifdef LITTLE_E
     fwrite(&filesystem.superblock->inode_sizes_len, sizeof(uint64_t), 1, file);
 #else
@@ -85,25 +90,63 @@ void cfs_write_to_disk(const char* filename, CFS filesystem) {
             sizeof(uint64_t), 1, file);
 #endif
 
-    LOGF(" Writing superblock");
+    LOG(" Writing superblock");
     fwrite(filesystem.superblock->inode_sizes,
             filesystem.superblock->inode_sizes_len, 1, file);
 
-    LOGF(" Finalizing");
+    LOG(" Finalizing");
     fflush(file);
     fclose(file);
 
     LOG("Done.");
 }
 
+CFS cfs_read_from_disk(const char* filename) {
+    LOGF("Reading from file %s...", filename);
+
+    FILE* file = fopen(filename, "rd");
+
+    char header[CFS_FS_HEADER_LEN];
+
+    LOG(" Checking header");
+    fseek(file, 0, SEEK_SET);
+    fread(&header, CFS_FS_HEADER_LEN, 1, file);
+    if (strncmp(header, cfs_fs_header, CFS_FS_HEADER_LEN)) {
+        LOGF("  Filesystem header/magic mismatch!");
+        exit(1);
+    }
+
+    LOG(" Reading filesystem name")
+    uint64_t fsname_len = 0;
+    fread(&fsname_len, sizeof(uint64_t), 1, file);
+#ifdef BIG_E
+    fsname_len = __builtin_bswap64(fsname_len);
+#endif
+
+    LOGF("  File system name length: %lu", fsname_len);
+
+    char fsname[fsname_len + 1];
+    fsname[fsname_len] = 0;
+    fread(&fsname, fsname_len, 1, file);
+    LOGF("  Filesystem name: %s", fsname);
+
+    CFS cfs = cfs_create_filesystem(fsname);
+
+    LOGF("Done.");
+    return cfs_dump_filesystem(cfs);
+}
+
 void cfs_free_filesystem(CFS fs) {
-    LOG("Freeing superblock");
+    LOG(" Freeing fs name");
+    free((void*)fs.name);
+    LOG(" Freeing superblock");
     cfs_free_superblock(fs.superblock);
 }
 
-void cfs_dump_filesystem(CFS fs) {
+CFS cfs_dump_filesystem(CFS fs) {
     LOG("Cool File System")
-    LOGF("Name: %s", fs.name);
-    LOG("Superblock information:");
-    LOGF("Inodes table size: %lu", fs.superblock->inode_sizes_len);
+    LOGF("    Name: %s", fs.name);
+    LOG("    Superblock information:");
+    LOGF("      Inodes table size: %lu", fs.superblock->inode_sizes_len);
+    return fs;
 }

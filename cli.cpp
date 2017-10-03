@@ -21,15 +21,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#include <stdio.h>
+#include <cstring>
+#include <bsd/string.h>
+
 #include "fs.h"
 #include "log.h"
 
 int main(int argc, char** argv) {
     LOG("CoolFS CLI");
-    LOG("Creating new CFS...");
-    CFS cfs = cfs_create_filesystem("Test system");
-    LOG("Writing CFS to file...");
-    cfs_write_to_disk("testcfs.img", cfs);
+    CFS cfs;
+    if (argc == 1 || strncmp(argv[1], "--readonly", 10)) {
+        LOG("Creating new CFS...");
+        cfs = cfs_create_filesystem("Test system");
+        LOG("Writing CFS to file...");
+        cfs_write_to_disk("testcfs.img", cfs);
+        LOG("Freeing resources...");
+        cfs_free_filesystem(cfs);
+    }
+    LOG("Reading CFS from file...");
+    cfs = cfs_read_from_disk("testcfs.img");
     LOG("Freeing resources...");
     cfs_free_filesystem(cfs);
     LOG("Exiting...");

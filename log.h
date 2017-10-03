@@ -24,6 +24,7 @@
 #ifndef LOG
 #ifdef DEBUG
 #include <stdio.h>
+
 #define LOG(msg) \
     printf(msg"\n");
 
