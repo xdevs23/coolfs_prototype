@@ -9,7 +9,7 @@ $(info Big endian detected)
 CFS_CFLAGS += -DBIG_E
 endif
 
-cfscli: libcfs.so *.h cli.cpp
+cfscli: libcfs.so *.h cli.cpp Makefile
 	g++ $(CFS_CFLAGS) -L$(shell pwd) -o cfscli cli.cpp -lcfs
 
 LIBCFS_SRC_FILES := \
@@ -17,7 +17,7 @@ LIBCFS_SRC_FILES := \
 	inode.cpp \
 	superblock.cpp
 
-libcfs.so: $(LIBCFS_SRC_FILES) *.h
+libcfs.so: $(LIBCFS_SRC_FILES) *.h Makefile
 	g++ -shared -fPIC $(CFS_CFLAGS) -o libcfs.so $(LIBCFS_SRC_FILES)
 
 .PHONY: run
