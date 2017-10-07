@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <cstring>
 #include <bsd/string.h>
+#define __STDC_FORMAT_MACROS 1
+#include <inttypes.h>
 
 #include "fs.h"
 #include "superblock.h"
@@ -48,7 +50,7 @@ CFS cfs_create_filesystem(const char* name) {
     SUPERBLOCK* sb = cfs_create_superblock();
     LOG(" Creating inode table");
     sb->inode_sizes_len = 4096;
-    sb->inode_sizes = (uint64_t*) malloc(sb->inode_sizes_len);
+    sb->inode_sizes = (uint64_t*) malloc(sb->inode_sizes_len * sizeof(uint64_t));
     memset(sb->inode_sizes, 0, sb->inode_sizes_len);
     LOG(" Associating superblock to this CFS");
     cfs.superblock = sb;
@@ -92,7 +94,7 @@ void cfs_write_to_disk(const char* filename, CFS filesystem) {
 
     LOG(" Writing superblock");
     fwrite(filesystem.superblock->inode_sizes,
-            filesystem.superblock->inode_sizes_len, 1, file);
+            filesystem.superblock->inode_sizes_len * sizeof(uint64_t), 1, file);
 
     LOG(" Finalizing");
     fflush(file);
@@ -131,6 +133,30 @@ CFS cfs_read_from_disk(const char* filename) {
     LOGF("  Filesystem name: %s", fsname);
 
     CFS cfs = cfs_create_filesystem(fsname);
+
+    LOG(" Reading inode tables");
+#ifdef LITTLE_E
+    fread(&cfs.superblock->inode_sizes_len, sizeof(uint64_t), 1, file);
+#else
+    uint64_t inode_sizes_len_swapped = 0;
+    fread(&inode_sizes_len_swapped, sizeof(uint64_t), 1, file);
+    cfs.superblock->inode_sizes_len =
+        __builtin_bswap64(inode_sizes_len_swapped);
+#endif
+
+    LOG(" Reading superblock");
+    fread(cfs.superblock->inode_sizes,
+            cfs.superblock->inode_sizes_len * sizeof(uint64_t), 1, file);
+
+#ifdef BIG_E
+    LOG(" Reversing byte order of inode table sizes");
+    for (uint64_t i = 0; i < cfs.superblock->inode_sizes_len; i++) {
+        cfs.superblock->inode_sizes[i] =
+            __builtin_bswap64(cfs.superblock->inode_sizes[i]);
+    }
+#endif
+
+    fclose(file);
 
     LOGF("Done.");
     return cfs_dump_filesystem(cfs);

@@ -1,7 +1,7 @@
 
 CFS_CFLAGS := -DDEBUG
 
-ifeq ($(shell echo -n I | od -to2 | awk '{ print substr($$2,6,1); exit}'),1)
+ifeq ($(shell echo -n I | od -to2 | awk '{ print substr($$2,6,1); exit}'),0)
 $(info Little endian detected)
 CFS_CFLAGS += -DLITTLE_E
 else
